@@ -5,6 +5,25 @@
     const password = ref('');
     const errorMessage = ref('');
 
+    async function login() {
+        try {
+            const res = await fetch('/signin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            if (res.ok) {
+                showMsg('Login bem-sucedido! Redirecionando…', true);
+                setTimeout(() => { window.location.href = '/'; }, 1500);
+            } else {
+                const data = await res.json().catch(() => ({}));
+                showMsg(data.msg || 'Erro ao fazer login.', false);
+            }
+        } catch (error) {
+            errorMessage.value = 'Ocorreu um erro ao fazer login. Por favor, tente novamente.';
+        }
+    }
+
 </script>
 
 <template>
