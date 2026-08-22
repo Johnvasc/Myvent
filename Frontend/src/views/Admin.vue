@@ -4,11 +4,8 @@ import Chart from 'chart.js/auto'
 
 interface UserRequest {
   id: number
-  name: string
-  email: string
-  avatar: string
-  dataSolicitacao: string
-  tipo: 'Organizador' | 'Participante'
+  username: string
+  createdAt: string
 }
 
 // Métricas do Dashboard
@@ -16,52 +13,50 @@ const stats = ref([
   { label: 'Eventos Ativos', valor: '148', icone: 'bi-calendar-check', cor: 'primary', variacao: '+12% este mês' },
   { label: 'Total de Usuários', valor: '2.450', icone: 'bi-people', cor: 'success', variacao: '+5.4% esta semana' },
   { label: 'Receita de Ingressos', valor: 'R$ 48.920', icone: 'bi-currency-dollar', cor: 'warning', variacao: '+18% vs meta' },
-  { label: 'Solicitações Pendentes', valor: '3', icone: 'bi-hourglass-split', cor: 'danger', variacao: 'Requer atenção' }
+  { label: 'Solicitações Pendentes', valor: '0', icone: 'bi-hourglass-split', cor: 'danger', variacao: 'Requer atenção' }
 ])
 
 // Lista de Solicitações
-const solicitacoes = ref<UserRequest[]>([
-  {
-    id: 1,
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    avatar: 'https://i.pravatar.cc/150?img=11',
-    dataSolicitacao: '19/08/2026',
-    tipo: 'Organizador'
-  },
-  {
-    id: 2,
-    name: 'Mariana Silva',
-    email: 'mariana.silva@devmail.com',
-    avatar: 'https://i.pravatar.cc/150?img=5',
-    dataSolicitacao: '18/08/2026',
-    tipo: 'Organizador'
-  },
-  {
-    id: 3,
-    name: 'Carlos Mendes',
-    email: 'carlos.mendes@empresa.com',
-    avatar: 'https://i.pravatar.cc/150?img=13',
-    dataSolicitacao: '17/08/2026',
-    tipo: 'Participante'
-  }
-])
+const solicitacoes = ref<UserRequest[]>([])
+const loadingRequests = ref(false)
+const requestError = ref('')
 
 // Ações
-function approveUser(userId: number) {
-  solicitacoes.value = solicitacoes.value.filter(u => u.id !== userId)
+async function loadPendingAdmins() {
+  loadingRequests.value = true
+  requestError.value = ''
+  try {
+    const response = await fetch('http://localhost:3000/api/auth/pending-admins', {
+      headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
+    })
+    const data = await response.json().catch(() => [])
+    if (!response.ok) throw new Error(data.error || 'Não foi possível carregar as solicitações.')
+    solicitacoes.value = data
+    stats.value[3]!.valor = String(data.length)
+  } catch (error) {
+    requestError.value = error instanceof Error ? error.message : 'Erro ao carregar solicitações.'
+  } finally {
+    loadingRequests.value = false
+  }
 }
 
-function rejectUser(userId: number) {
-  solicitacoes.value = solicitacoes.value.filter(u => u.id !== userId)
-}
-
-function deleteUser(userId: number) {
-  solicitacoes.value = solicitacoes.value.filter(u => u.id !== userId)
+async function approveUser(userId: number) {
+  const response = await fetch(`http://localhost:3000/api/auth/admins/${userId}/approve`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    requestError.value = data.error || 'Não foi possível aprovar o administrador.'
+    return
+  }
+  solicitacoes.value = solicitacoes.value.filter(user => user.id !== userId)
+  stats.value[3]!.valor = String(solicitacoes.value.length)
 }
 
 // Inicialização dos Gráficos com Chart.js
 onMounted(() => {
+  loadPendingAdmins()
   // Gráfico 1: Crescimento de Eventos (Linha)
   const ctxEvents = document.getElementById('eventsChart') as HTMLCanvasElement
   if (ctxEvents) {
@@ -163,6 +158,8 @@ onMounted(() => {
       </div>
 
       <div class="table-responsive">
+        <div v-if="loadingRequests" class="text-center py-4 text-muted">Carregando solicitações...</div>
+        <div v-else-if="requestError" class="alert alert-danger m-3">{{ requestError }}</div>
         <table class="table align-middle mb-0">
           <thead class="table-light">
             <tr>
@@ -176,28 +173,24 @@ onMounted(() => {
             <tr v-for="item in solicitacoes" :key="item.id">
               <td>
                 <div class="d-flex align-items-center gap-3">
-                  <img :src="item.avatar" class="rounded-circle" width="40" height="40" alt="Avatar">
+                  <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center" style="width: 40px; height: 40px">
+                    {{ item.username.charAt(0).toUpperCase() }}
+                  </div>
                   <div>
-                    <span class="fw-semibold d-block">{{ item.name }}</span>
-                    <span class="text-muted small">{{ item.email }}</span>
+                    <span class="fw-semibold d-block">{{ item.username }}</span>
+                    <span class="text-muted small">Solicitação de administrador</span>
                   </div>
                 </div>
               </td>
               <td>
                 <span class="badge bg-secondary bg-opacity-25 text-white border">
-                  {{ item.tipo }}
+                  Organizador
                 </span>
               </td>
-              <td class="text-muted small">{{ item.dataSolicitacao }}</td>
+              <td class="text-muted small">{{ new Date(item.createdAt).toLocaleDateString('pt-BR') }}</td>
               <td class="text-end pe-4">
                 <button @click="approveUser(item.id)" class="btn btn-sm btn-outline-success me-2" title="Aprovar">
                   <i class="bi bi-check-lg"></i> Aprovar
-                </button>
-                <button @click="rejectUser(item.id)" class="btn btn-sm btn-outline-warning me-2" title="Rejeitar">
-                  <i class="bi bi-x-lg"></i> Rejeitar
-                </button>
-                <button @click="deleteUser(item.id)" class="btn btn-sm btn-outline-danger" title="Deletar">
-                  <i class="bi bi-trash"></i>
                 </button>
               </td>
             </tr>

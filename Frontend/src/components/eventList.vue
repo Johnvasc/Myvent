@@ -1,64 +1,29 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted} from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter();
 
 interface Evento {
   id: number
-  titulo: string
-  categoria: string
-  data: string
-  local: string
-  preco: string
+  title: string
+  category: string
+  date: string
+  location: string
+  price: string
   status: 'Disponível' | 'Últimos Ingressos' | 'Esgotado'
 }
 
-// Dados simulados (placeholders)
-const eventos = ref<Evento[]>([
-  {
-    id: 1,
-    titulo: 'Festival de Inverno & Música Acústica',
-    categoria: 'Música',
-    data: '15/09/2026 às 19:30',
-    local: 'Teatro Municipal',
-    preco: 'R$ 80,00',
-    status: 'Disponível'
-  },
-  {
-    id: 2,
-    titulo: 'Tech Summit Brasil: IA e Futuro Web',
-    categoria: 'Tecnologia',
-    data: '22/09/2026 às 09:00',
-    local: 'Centro de Convenções',
-    preco: 'R$ 150,00',
-    status: 'Últimos Ingressos'
-  },
-  {
-    id: 3,
-    titulo: 'Circuito Gastronômico & Degustação de Cafés',
-    categoria: 'Gastronomia',
-    data: '28/09/2026 às 16:00',
-    local: 'Praça das Artes',
-    preco: 'Entrada Grátis',
-    status: 'Disponível'
-  },
-  {
-    id: 4,
-    titulo: 'Campeonato Regional de E-Sports',
-    categoria: 'Games',
-    data: '05/10/2026 às 14:00',
-    local: 'Arena Digital',
-    preco: 'R$ 45,00',
-    status: 'Esgotado'
-  },
-  {
-    id: 5,
-    titulo: 'Workshop: Fotografia Urbana e Iluminação',
-    categoria: 'Artes',
-    data: '12/10/2026 às 10:00',
-    local: 'Galeria Central',
-    preco: 'R$ 60,00',
-    status: 'Disponível'
-  }
-])
+const loading = ref(true)
+const errorMessage = ref('')
+const eventos = ref<Evento[]>([])
+
+function formatDate(date: string) {
+  return new Date(date).toLocaleString('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short'
+  })
+}
 
 function getBadgeClass(status: Evento['status']) {
   switch (status) {
@@ -72,6 +37,23 @@ function getBadgeClass(status: Evento['status']) {
       return 'bg-secondary'
   }
 }
+async function fetchEventos() {
+  try {
+    const response = await fetch('http://localhost:3000/api/events');
+    if (!response.ok) {
+      throw new Error(`Erro ao buscar eventos: ${response.statusText}`);
+    }
+    eventos.value = await response.json() as Evento[]
+  } catch (error) {
+    errorMessage.value = 'Erro ao buscar eventos.';
+    console.error('Erro ao buscar eventos:', error);
+  } finally {
+    loading.value = false;
+  }
+}
+onMounted(() => {
+  fetchEventos();
+});
 </script>
 
 <template>
@@ -83,7 +65,11 @@ function getBadgeClass(status: Evento['status']) {
       <span class="badge bg-primary">{{ eventos.length }} eventos</span>
     </div>
 
-    <ul class="list-group list-group-flush event-list">
+    <div v-if="loading" class="p-4 text-center text-muted">Carregando eventos...</div>
+    <div v-else-if="errorMessage" class="alert alert-danger m-3">{{ errorMessage }}</div>
+    <div v-else-if="eventos.length === 0" class="p-4 text-center text-muted">Nenhum evento encontrado.</div>
+
+    <ul v-else class="list-group list-group-flush event-list">
       <li
         v-for="(evento, index) in eventos"
         :key="evento.id"
@@ -94,22 +80,23 @@ function getBadgeClass(status: Evento['status']) {
           <!-- Detalhes do Evento -->
           <div>
             <div class="d-flex align-items-center gap-2 mb-1">
-              <span class="badge rounded-pill bg-light text-dark border">{{ evento.categoria }}</span>
+              <span class="badge rounded-pill bg-light text-dark border">{{ evento.category }}</span>
               <span class="badge" :class="getBadgeClass(evento.status)">{{ evento.status }}</span>
             </div>
-            <h6 class="fw-bold mb-1 text-dark">{{ evento.titulo }}</h6>
+            <h6 class="fw-bold mb-1 text-white">{{ evento.title }}</h6>
             <div class="text-muted small d-flex flex-wrap gap-3">
-              <span><i class="bi bi-clock me-1"></i>{{ evento.data }}</span>
-              <span><i class="bi bi-geo-alt me-1"></i>{{ evento.local }}</span>
+              <span><i class="bi bi-clock me-1"></i>{{ formatDate(evento.date) }}</span>
+              <span><i class="bi bi-geo-alt me-1"></i>{{ evento.location }}</span>
             </div>
           </div>
 
           <!-- Preço e Ação -->
           <div class="d-flex align-items-center justify-content-between justify-content-md-end gap-3 mt-2 mt-md-0">
-            <span class="fw-bold fs-6 text-primary">{{ evento.preco }}</span>
+            <span class="fw-bold fs-6 text-primary">{{ evento.price }}</span>
             <button
               class="btn btn-sm btn-outline-primary"
               :disabled="evento.status === 'Esgotado'"
+              @click="() => router.push(`/event/${evento.id}`)"
             >
               Ver Detalhes
             </button>

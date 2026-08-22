@@ -24,6 +24,7 @@ const router = createRouter({
     {
       path: '/admin',
       name: 'admin',
+      meta: { requiresMaster: true },
       component: () => import('../views/Admin.vue')
     },
     {
@@ -38,6 +39,16 @@ const router = createRouter({
       component: () => import('../views/Event.vue')
     }
   ]
+})
+
+router.beforeEach((to) => {
+  if (!to.meta.requiresMaster) return true
+
+  const token = localStorage.getItem('accessToken')
+  const user = JSON.parse(localStorage.getItem('user') || 'null') as { userType?: number } | null
+  if (token && user?.userType === 3) return true
+
+  return { name: 'home' }
 })
 
 export default router
