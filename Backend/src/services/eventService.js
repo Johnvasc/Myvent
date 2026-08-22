@@ -7,6 +7,9 @@ const publicEvent = {
   date: true,
   location: true,
   imageUrl: true,
+  category: true,
+  price: true,
+  status: true,
   creatorId: true,
   createdAt: true,
   updatedAt: true

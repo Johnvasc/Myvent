@@ -20,13 +20,17 @@ async function getEvent(req, res, next) {
 
 async function postEvent(req, res, next) {
   try {
-    const { title, description, date, location, imageUrl } = req.body;
+    const { title, description, date, location, imageUrl, category, price, status } = req.body;
     if (!title || !date || !location) {
       return res.status(400).json({ error: 'title, date e location sao obrigatorios' });
     }
+    const parsedDate = new Date(date);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return res.status(400).json({ error: 'date invalida' });
+    }
 
     const event = await createEvent(
-      { title, description, date: new Date(date), location, imageUrl },
+      { title, description, date: parsedDate, location, imageUrl, category, price, status },
       Number(req.user.sub)
     );
     return res.status(201).json(event);

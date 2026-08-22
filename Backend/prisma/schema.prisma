@@ -17,6 +17,8 @@ model User {
   id           Int      @id @default(autoincrement())
   username     String   @unique
   passwordHash String
+  userType     Int      @default(1)
+  isEnable     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   events       Event[]
@@ -42,6 +44,9 @@ model Event {
   date        DateTime
   location    String
   imageUrl    String?
+  category    String   @default("Geral")
+  price       String   @default("Entrada Grátis")
+  status      String   @default("Disponível")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   creatorId   Int
